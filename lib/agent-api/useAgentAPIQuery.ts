@@ -111,12 +111,13 @@ export function useAgentAPIQuery(params: AgentApiQueryParams) {
         setAgentState(AgentApiState.LOADING);
         
         try {
-            // Use specific agent endpoint if database and schema are provided
+            // Use specific agent endpoint if database, schema, and agent name are provided
             const agentDatabase = process.env.NEXT_PUBLIC_SNOWFLAKE_AGENT_DATABASE;
             const agentSchema = process.env.NEXT_PUBLIC_SNOWFLAKE_AGENT_SCHEMA;
+            const agentName = process.env.NEXT_PUBLIC_SNOWFLAKE_AGENT;
             
-            const agentEndpoint = agentDatabase && agentSchema 
-                ? `${snowflakeUrl}/api/v2/databases/${agentDatabase}/schemas/${agentSchema}/agents/agent:run`
+            const agentEndpoint = agentDatabase && agentSchema && agentName
+                ? `${snowflakeUrl}/api/v2/databases/${agentDatabase}/schemas/${agentSchema}/agents/${agentName}:run`
                 : `${snowflakeUrl}/api/v2/cortex/agent:run`;
 
             const response = await fetch(
