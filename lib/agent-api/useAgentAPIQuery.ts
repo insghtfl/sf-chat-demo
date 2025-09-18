@@ -68,16 +68,26 @@ export function useAgentAPIQuery(params: AgentApiQueryParams) {
         });
 
         setAgentState(AgentApiState.LOADING);
-        const response = await fetch(
-            `${snowflakeUrl}/api/v2/cortex/agent:run`,
-            { method: 'POST', headers, body: JSON.stringify(body) }
-        );
+        
+        try {
+            const response = await fetch(
+                `${snowflakeUrl}/api/v2/cortex/agent:run`,
+                { method: 'POST', headers, body: JSON.stringify(body) }
+            );
 
-        const latestAssistantMessageId = shortUUID.generate();
-        setLatestAssistantMessageId(latestAssistantMessageId);
-        const newAssistantMessage = getEmptyAssistantMessage(latestAssistantMessageId);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-        const streamEvents = events(response);
+            if (!response.body) {
+                throw new Error('Response body is null');
+            }
+
+            const latestAssistantMessageId = shortUUID.generate();
+            setLatestAssistantMessageId(latestAssistantMessageId);
+            const newAssistantMessage = getEmptyAssistantMessage(latestAssistantMessageId);
+
+            const streamEvents = events(response);
         for await (const event of streamEvents) {
             if (event.data === "[DONE]") {
                 setAgentState(AgentApiState.IDLE);
@@ -153,6 +163,11 @@ export function useAgentAPIQuery(params: AgentApiQueryParams) {
                 });
             }
             // Ignore thinking events and other unknown events for now
+        }
+        } catch (error) {
+            console.error('Error in agent API query:', error);
+            toast.error(`Failed to connect to agent API: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            setAgentState(AgentApiState.IDLE);
         }
     }, [agentRequestParams, authToken, messages, snowflakeUrl, toolResources]);
 
