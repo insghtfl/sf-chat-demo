@@ -21,6 +21,39 @@ export interface AgentApiQueryParams extends Omit<AgentRequestBuildParams, "mess
     snowflakeUrl: string;
 }
 
+async function fetchAvailableAgents(authToken: string, snowflakeUrl: string): Promise<any[]> {
+    const agentDatabase = process.env.NEXT_PUBLIC_SNOWFLAKE_AGENT_DATABASE;
+    const agentSchema = process.env.NEXT_PUBLIC_SNOWFLAKE_AGENT_SCHEMA;
+    
+    if (!agentDatabase || !agentSchema) {
+        console.warn("Agent database or schema not configured");
+        return [];
+    }
+
+    try {
+        const response = await fetch(
+            `${snowflakeUrl}/api/v2/databases/${agentDatabase}/schemas/${agentSchema}/agents`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'X-Snowflake-Authorization-Token-Type': 'KEYPAIR_JWT',
+                    'Accept': 'application/json'
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            console.warn(`Failed to fetch agents: ${response.status}`);
+            return [];
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.warn("Error fetching available agents:", error);
+        return [];
+    }
+}
+
 export enum AgentApiState {
     IDLE = "idle",
     LOADING = "loading",
@@ -41,6 +74,14 @@ export function useAgentAPIQuery(params: AgentApiQueryParams) {
     const [agentState, setAgentState] = React.useState<AgentApiState>(AgentApiState.IDLE);
     const [messages, setMessages] = React.useState<AgentMessage[]>([]);
     const [latestAssistantMessageId, setLatestAssistantMessageId] = React.useState<string | null>(null);
+    const [availableAgents, setAvailableAgents] = React.useState<any[]>([]);
+
+    // Fetch available agents on mount
+    React.useEffect(() => {
+        if (authToken) {
+            fetchAvailableAgents(authToken, snowflakeUrl).then(setAvailableAgents);
+        }
+    }, [authToken, snowflakeUrl]);
 
     const handleNewMessage = React.useCallback(async (input: string) => {
         if (!authToken) {
@@ -183,6 +224,7 @@ export function useAgentAPIQuery(params: AgentApiQueryParams) {
         agentState,
         messages,
         handleNewMessage,
-        latestAssistantMessageId
+        latestAssistantMessageId,
+        availableAgents
     };
 }
