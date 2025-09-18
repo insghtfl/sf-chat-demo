@@ -84,148 +84,75 @@ export function useAgentAPIQuery(params: AgentApiQueryParams) {
                 return;
             }
 
-            if (JSON.parse(event.data!).code) {
-                toast.error(JSON.parse(event.data!).message);
+            // Handle error responses
+            if (event.data && JSON.parse(event.data).code) {
+                toast.error(JSON.parse(event.data).message);
                 setAgentState(AgentApiState.IDLE);
                 return;
             }
 
-            const {
-                delta: {
-                    content: [textOrToolUseResponse, toolResultsResponse]
-                }
-            } = JSON.parse(event.data!);
-
-            const { type, text } = textOrToolUseResponse;
-
-            // normal text response
-            if (type === "text" && text !== undefined) {
-                appendTextToAssistantMessage(newAssistantMessage, text);
-                setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
-            } else if (type === "tool_use") {
-                appendToolResponseToAssistantMessage(newAssistantMessage, textOrToolUseResponse);
-                setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
-
-                // a tool result (analyst / search)
-                if (toolResultsResponse?.tool_results) {
-                    appendToolResponseToAssistantMessage(newAssistantMessage, toolResultsResponse);
+            // Handle different event types from new Snowflake API
+            if (event.event === 'response.text.delta') {
+                const { text } = JSON.parse(event.data!);
+                if (text) {
+                    appendTextToAssistantMessage(newAssistantMessage, text);
                     setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
+                    setAgentState(AgentApiState.STREAMING);
+                }
+            }
+            else if (event.event === 'response.tool_use') {
+                const toolUse = JSON.parse(event.data!);
+                appendToolResponseToAssistantMessage(newAssistantMessage, { type: "tool_use", tool_use: toolUse });
+                setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
+            }
+            else if (event.event === 'response.tool_result') {
+                const toolResult = JSON.parse(event.data!);
+                appendToolResponseToAssistantMessage(newAssistantMessage, { type: "tool_results", tool_results: toolResult });
+                setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
 
-                    const statement = toolResultsResponse.tool_results.content[0]?.json?.sql;
-
-                    // if analyst returns a sql statement, run sql_exec tool
-                    if (statement) {
-                        setAgentState(AgentApiState.EXECUTING_SQL);
-                        const tableResponse = await fetch(`${snowflakeUrl}/api/v2/statements`, {
-                            method: 'POST',
-                            body: JSON.stringify({
-                                "statement": statement,
-                                "parameters": {
-                                    "BINARY_OUTPUT_FORMAT": "HEX",
-                                    "DATE_OUTPUT_FORMAT": "YYYY-Mon-DD",
-                                    "TIME_OUTPUT_FORMAT": "HH24:MI:SS",
-                                    "TIMESTAMP_LTZ_OUTPUT_FORMAT": "",
-                                    "TIMESTAMP_NTZ_OUTPUT_FORMAT": "YYYY-MM-DD HH24:MI:SS.FF3",
-                                    "TIMESTAMP_TZ_OUTPUT_FORMAT": "",
-                                    "TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD HH24:MI:SS.FF3 TZHTZM",
-                                    "TIMEZONE": "America/Los_Angeles",
-                                }
-                            }),
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Accept": "application/json",
-                                "User-Agent": "myApplicationName/1.0",
-                                "X-Snowflake-Authorization-Token-Type": "KEYPAIR_JWT",
-                                "Authorization": `Bearer ${authToken}`,
-                            }
-                        })
-
-                        const tableData = await tableResponse.json();
-
-                        if (tableData.code && tableData.message?.includes("Asynchronous execution in progress.")) {
-                            toast.error("SQL execution took too long to respond. Please try again.");
-                            return;
-                        }
-
-                        appendFetchedTableToAssistantMessage(newAssistantMessage, tableData, true);
+                // Handle SQL execution results - the new API executes SQL automatically
+                const sqlResult = toolResult.content?.[0]?.json?.result_set;
+                if (sqlResult) {
+                    setAgentState(AgentApiState.EXECUTING_SQL);
+                    appendFetchedTableToAssistantMessage(newAssistantMessage, sqlResult, true);
+                    setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
+                }
+            }
+            else if (event.event === 'response.status') {
+                const statusData = JSON.parse(event.data!);
+                // Update agent state based on status
+                if (statusData.status === 'executing_tools') {
+                    setAgentState(AgentApiState.EXECUTING_SQL);
+                } else if (statusData.status === 'streaming_analyst_results') {
+                    setAgentState(AgentApiState.RUNNING_ANALYTICS);
+                } else if (statusData.status === 'proceeding_to_answer') {
+                    setAgentState(AgentApiState.STREAMING);
+                }
+            }
+            // Handle final response format (for compatibility)
+            else if (event.event === 'response') {
+                const responseData = JSON.parse(event.data!);
+                responseData.content?.forEach((content: any) => {
+                    if (content.type === 'text') {
+                        appendTextToAssistantMessage(newAssistantMessage, content.text);
                         setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
-
-                        // run data2answer
-                        const latestUserMessageId = shortUUID.generate();
-                        const sqlExecUserMessage = getSQLExecUserMessage(latestUserMessageId, tableData.statementHandle)
-                        const { headers, body } = buildStandardRequestParams({
-                            authToken,
-                            messages: removeFetchedTableFromMessages([...newMessages, newAssistantMessage, sqlExecUserMessage]),
-                            input,
-                            ...agentRequestParams,
-                        });
-                        setMessages(appendUserMessageToMessagesList(sqlExecUserMessage));
-                        setAgentState(AgentApiState.RUNNING_ANALYTICS);
-                        const data2AnalyticsResponse = await fetch(`${snowflakeUrl}/api/v2/cortex/agent:run`, {
-                            method: 'POST',
-                            headers,
-                            body: JSON.stringify(body),
-                        })
-
-                        const data2AnalyticsStreamEvents = events(data2AnalyticsResponse);
-
-                        const latestAssistantD2AMessageId = shortUUID.generate();
-                        const newAssistantD2AMessage = getEmptyAssistantMessage(latestAssistantD2AMessageId);
-                        for await (const event of data2AnalyticsStreamEvents) {
-                            if (event.data === "[DONE]") {
-                                setAgentState(AgentApiState.IDLE);
-                                return;
-                            }
-
-                            if (JSON.parse(event.data!).code) {
-                                toast.error(JSON.parse(event.data!).message);
-                                setAgentState(AgentApiState.IDLE);
-                                return;
-                            }
-
-                            const {
-                                delta: {
-                                    content: data2Contents
-                                }
-                            } = JSON.parse(event.data!);
-
-                            data2Contents.forEach((content: AgentMessage['content'][number]) => {
-                                if ('text' in content) {
-                                    appendTextToAssistantMessage(newAssistantD2AMessage, content.text);
-                                    setMessages(appendAssistantMessageToMessagesList(newAssistantD2AMessage));
-                                } else if ('chart' in content) {
-                                    appendChartToAssistantMessage(newAssistantD2AMessage, content.chart);
-                                    setMessages(appendAssistantMessageToMessagesList(newAssistantD2AMessage));
-                                } else if ('table' in content) {
-                                    appendTableToAssistantMessage(newAssistantD2AMessage, content.table);
-                                    setMessages(appendAssistantMessageToMessagesList(newAssistantD2AMessage));
-                                    // When table type is returned, it means the table should be visualized.
-                                    // In future, "table" type will contain "data" field enabling to render the table directly.
-                                    // For now, we reuse the previously fetched data.
-                                    appendFetchedTableToAssistantMessage(newAssistantD2AMessage, tableData, false);
-                                    setMessages(appendAssistantMessageToMessagesList(newAssistantD2AMessage));
-                                }
-                                else {
-                                    const tool_results = (content as AgentMessageToolResultsContent).tool_results;
-                                    if (tool_results) {
-                                        appendToolResponseToAssistantMessage(newAssistantD2AMessage, content);
-                                        setMessages(appendAssistantMessageToMessagesList(newAssistantD2AMessage));
-                                    }
-                                }
-                            })
+                    } else if (content.type === 'tool_use') {
+                        appendToolResponseToAssistantMessage(newAssistantMessage, content);
+                        setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
+                    } else if (content.type === 'tool_result') {
+                        appendToolResponseToAssistantMessage(newAssistantMessage, { type: "tool_results", tool_results: content.tool_result });
+                        setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
+                        
+                        // Handle SQL results
+                        const sqlResult = content.tool_result.content?.[0]?.json?.result_set;
+                        if (sqlResult) {
+                            appendFetchedTableToAssistantMessage(newAssistantMessage, sqlResult, true);
+                            setMessages(appendAssistantMessageToMessagesList(newAssistantMessage));
                         }
                     }
-                }
-            } else {
-                console.warn("Unexpected response from agent API: ", event.data);
-                toast.error("Unexpected response from agent API");
+                });
             }
-
-            // search returns citations first then text after. A bit of buffer time in between
-            // making sure the state transitions smoothly
-            if ((textOrToolUseResponse as AgentMessageToolUseContent).tool_use?.name !== "search1") {
-                setAgentState(AgentApiState.STREAMING);
-            }
+            // Ignore thinking events and other unknown events for now
         }
     }, [agentRequestParams, authToken, messages, snowflakeUrl, toolResources]);
 
