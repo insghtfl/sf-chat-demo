@@ -41,7 +41,6 @@ export interface AgentMessageTableContent {
 
 export interface AgentMessageFetchedTableContent {
     type: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tableMarkdown: string;
     toolResult: boolean;
 }

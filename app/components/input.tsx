@@ -7,6 +7,7 @@ import {
     useEffect,
     useCallback,
     memo,
+    useState,
 } from 'react';
 import { toast } from 'sonner';
 import { useWindowSize } from 'usehooks-ts';
@@ -29,8 +30,10 @@ export const ChatInput = ({
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const { width } = useWindowSize();
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
+        setIsMounted(true);
         if (textareaRef.current) {
             adjustHeight();
         }
@@ -67,6 +70,16 @@ export const ChatInput = ({
         }
     }, [handleSubmit, width]);
 
+    if (!isMounted) {
+        return (
+            <div className="relative w-full flex flex-col gap-6">
+                <div className="flex w-full rounded-md border border-input bg-background px-4 py-3 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm border-0 min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none !text-base bg-muted pb-10 dark:border-zinc-700">
+                    Loading...
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="relative w-full flex flex-col gap-6">
             {messagesLength === 0 && (
@@ -83,6 +96,7 @@ export const ChatInput = ({
                 )}
                 rows={2}
                 autoFocus
+                suppressHydrationWarning={true}
                 onKeyDown={(event) => {
                     if (event.key === 'Enter' && !event.shiftKey) {
                         event.preventDefault();

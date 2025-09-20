@@ -17,7 +17,6 @@ import { postProcessAgentText } from '../functions/postProcessAgentText';
 const PurePreviewMessage = ({
     message,
     agentState,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isLatestAssistantMessage,
 }: {
     message: AgentMessage;
@@ -39,9 +38,21 @@ const PurePreviewMessage = ({
     const relatedQueries: RelatedQuery[] = [];
     const agentResponses: React.ReactElement[] = [];
 
+    // Log message data for debugging
+    console.log('=== MESSAGE PROCESSING ===');
+    console.log('Message Role:', message.role);
+    console.log('Message Content:', message.content);
+    console.log('Content Length:', message.content.length);
+    console.log('========================');
+
     // iterate over the message content and populate the agentResponses array
     // this logic is useful until we get names / keys associated with each text / tool_results responses to differentiate
-    message.content.forEach((content) => {
+    message.content.forEach((content, contentIndex) => {
+        console.log(`=== CONTENT ${contentIndex} ===`);
+        console.log('Content Type:', content.type);
+        console.log('Content Data:', content);
+        console.log('=======================');
+        
         // if plain text
         if (content.type === "text") {
             const { text } = (content as AgentMessageTextContent);
@@ -56,39 +67,53 @@ const PurePreviewMessage = ({
 
             const postProcessedText = postProcessAgentText(text, relatedQueries, citations);
 
-            agentResponses.push(<ChatTextComponent key={text} text={postProcessedText} role={role} />);
+            agentResponses.push(<ChatTextComponent key={`text-${contentIndex}-${text.slice(0, 20)}`} text={postProcessedText} role={role} />);
             // if analyst / search / data2analytics response
         } else if (content.type === "tool_results") {
-            const toolResultsContent = (content as AgentMessageToolResultsContent).tool_results.content[0].json;
+            const toolResults = (content as AgentMessageToolResultsContent).tool_results;
+            const firstContent = toolResults.content?.[0];
+            
+            if (firstContent?.json) {
+                const toolResultsContent = firstContent.json;
 
-            // if search response
-            if ("searchResults" in toolResultsContent) {
-                citations.push(...toolResultsContent.searchResults.map((result: CortexSearchCitationSource) => ({
-                    text: result.text,
-                    number: parseInt(String(result.source_id), 10),
-                })))
-            }
+                // if search response
+                if ("searchResults" in toolResultsContent) {
+                    citations.push(...toolResultsContent.searchResults.map((result: CortexSearchCitationSource) => ({
+                        text: result.text,
+                        number: parseInt(String(result.source_id), 10),
+                    })))
+                }
 
-            // if analyst text response
-            if ("text" in toolResultsContent) {
-                const { text } = toolResultsContent;
-                agentResponses.push(<ChatTextComponent key={text} role={role} text={text} />);
-            }
+                // if analyst text response
+                if ("text" in toolResultsContent) {
+                    const { text } = toolResultsContent;
+                    agentResponses.push(<ChatTextComponent key={`tool-text-${contentIndex}-${text.slice(0, 20)}`} role={role} text={text} />);
+                }
 
-            // if analyst sql response
-            if ("sql" in toolResultsContent) {
-                const { sql } = toolResultsContent;
-                agentResponses.push(<ChatSQLComponent key={sql} sql={sql} />);
+                // if analyst sql response
+                if ("sql" in toolResultsContent) {
+                    const { sql } = toolResultsContent;
+                    agentResponses.push(<ChatSQLComponent key={`tool-sql-${contentIndex}-${sql.slice(0, 20)}`} sql={sql} />);
+                }
             }
 
             // if execute sql response
         } else if (content.type === "fetched_table") {
             const tableContent = (content as AgentMessageFetchedTableContent);
-            agentResponses.push(<ChatTableComponent key={`${tableContent.tableMarkdown}-${tableContent.toolResult}`} tableMarkdown={tableContent.tableMarkdown} toolResult={tableContent.toolResult} />);
+            agentResponses.push(<ChatTableComponent key={`table-${contentIndex}-${tableContent.tableMarkdown.slice(0, 20)}`} tableMarkdown={tableContent.tableMarkdown} toolResult={tableContent.toolResult} />);
         } else if (content.type === "chart") {
             const chart_content = (content as AgentMessageChartContent);
-            const chartSpec = prettifyChartSpec(JSON.parse(chart_content.chart.chart_spec));
-            agentResponses.push(<ChatChartComponent key={JSON.stringify(chartSpec)} chartSpec={chartSpec} />);
+            try {
+                const chartSpec = prettifyChartSpec(JSON.parse(chart_content.chart.chart_spec));
+                agentResponses.push(<ChatChartComponent key={`chart-${contentIndex}-${Math.random().toString(36).substring(2, 11)}`} chartSpec={chartSpec} />);
+            } catch (error) {
+                console.error('Error parsing chart spec:', error);
+                agentResponses.push(
+                    <div key={`chart-error-${contentIndex}-${Math.random().toString(36).substring(2, 11)}`} className="p-4 border border-red-200 rounded bg-red-50 text-red-700">
+                        خطأ في تحليل مواصفات الرسم البياني
+                    </div>
+                );
+            }
             
         }
     })
@@ -110,11 +135,6 @@ const PurePreviewMessage = ({
 
                     <div className="flex flex-col gap-4 w-full">
                         {agentResponses}
-
-                        {role === AgentMessageRole.ASSISTANT && agentState === AgentApiState.EXECUTING_SQL && (
-                            <Data2AnalyticsMessage message="Executing SQL..." />
-                        )}
-
                         {role === AgentMessageRole.ASSISTANT && agentState === AgentApiState.RUNNING_ANALYTICS && isLatestAssistantMessage && (
                             <Data2AnalyticsMessage message="Analyzing data..." />
                         )}

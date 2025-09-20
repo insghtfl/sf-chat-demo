@@ -14,12 +14,12 @@ function getDecryptedKey(passphrase: string): string {
 
     try {
         return execSync(`openssl pkcs8 -in ${keyPath} -passin pass:${passphrase} -nocrypt`, { encoding: 'utf8' });
-    } catch (error) {
+    } catch {
         try {
             return execSync(`openssl rsa -in ${keyPath} -passin pass:${passphrase}`, { encoding: 'utf8' });
         }
-        catch (error) {
-            throw new Error("Failed to decrypt private key: " + (error as Error).message);
+        catch (decryptError) {
+            throw new Error("Failed to decrypt private key: " + (decryptError as Error).message);
         }
     }
 }
