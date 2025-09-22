@@ -9,13 +9,11 @@ import { ThinkingMessage } from './chat-thinking-message';
 interface MessagesProps {
     agentState: AgentApiState;
     messages: AgentMessage[];
-    latestAssistantMessageId: string | null;
 }
 
 function PureMessages({
     agentState,
     messages,
-    latestAssistantMessageId,
 }: MessagesProps) {
     const [messagesContainerRef, messagesEndRef] =
         useScrollToBottom<HTMLDivElement>();
@@ -23,7 +21,7 @@ function PureMessages({
     return (
         <div
             ref={messagesContainerRef}
-            className="flex flex-col min-w-0 gap-12 flex-1 overflow-y-scroll pt-4"
+            className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-8 px-6"
         >
             {messages.length === 0 && <Overview />}
 
@@ -32,7 +30,7 @@ function PureMessages({
                     key={message.id + index}
                     message={message}
                     agentState={agentState}
-                    isLatestAssistantMessage={latestAssistantMessageId === message.id}
+                    isLatestAssistantMessage={false}
                 />
             ))}
 

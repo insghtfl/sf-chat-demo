@@ -15,22 +15,20 @@ import { useWindowSize } from 'usehooks-ts';
 import { ArrowUpIcon } from './icons';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { SuggestedActions } from './suggested-actions';
 
 export const ChatInput = ({
     isLoading,
-    messagesLength,
     handleSubmit,
     className,
 }: {
     isLoading: boolean;
-    messagesLength: number;
     handleSubmit: (input: string) => void;
     className?: string;
 }) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const { width } = useWindowSize();
     const [isMounted, setIsMounted] = useState(false);
+    const [inputValue, setInputValue] = useState('');
 
     useEffect(() => {
         setIsMounted(true);
@@ -63,12 +61,18 @@ export const ChatInput = ({
 
         handleSubmit(textareaRef.current.value);
         textareaRef.current.value = '';
+        setInputValue('');
         resetHeight();
 
         if (width && width > 768) {
             textareaRef.current?.focus();
         }
     }, [handleSubmit, width]);
+
+    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setInputValue(e.target.value);
+        adjustHeight();
+    }, []);
 
     if (!isMounted) {
         return (
@@ -82,39 +86,38 @@ export const ChatInput = ({
 
     return (
         <div className="relative w-full flex flex-col gap-6">
-            {messagesLength === 0 && (
-                <SuggestedActions handleSubmit={handleSubmit} />
-            )}
+            <div className="relative">
+                <Textarea
+                    ref={textareaRef}
+                    placeholder="اكتب رسالتك هنا..."
+                    className={cx(
+                        'border-2 border-[#25935f]/30 min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none !text-base bg-white pb-12 dark:border-zinc-700 rounded-3xl shadow-xl focus:border-[#25935f] focus:ring-2 focus:ring-[#25935f]/20 transition-all duration-200',
+                        className,
+                    )}
+                    rows={2}
+                    autoFocus
+                    suppressHydrationWarning={true}
+                    value={inputValue}
+                    onChange={handleInputChange}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                            event.preventDefault();
 
-            {/* Removed rounded-2xl */}
-            <Textarea
-                ref={textareaRef}
-                placeholder="Send a message..."
-                className={cx(
-                    'border-0 min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none !text-base bg-muted pb-10 dark:border-zinc-700',
-                    className,
-                )}
-                rows={2}
-                autoFocus
-                suppressHydrationWarning={true}
-                onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault();
-
-                        if (isLoading) {
-                            toast.error('Please wait for the model to finish its response!');
-                        } else {
-                            submitForm();
+                            if (isLoading) {
+                                toast.error('Please wait for the model to finish its response!');
+                            } else {
+                                submitForm();
+                            }
                         }
-                    }
-                }}
-            />
-
-            <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-                <SendButton
-                    input={textareaRef.current?.value ?? ''}
-                    submitForm={submitForm}
+                    }}
                 />
+
+                <div className="absolute bottom-2 right-2 w-fit flex flex-row justify-end">
+                    <SendButton
+                        input={inputValue}
+                        submitForm={submitForm}
+                    />
+                </div>
             </div>
         </div>
     );
@@ -129,15 +132,16 @@ function PureSendButton({
 }) {
     return (
         <Button
-            className="p-2 size-full border dark:border-zinc-600"
+            className="p-3 size-12 rounded-2xl border-0 shadow-xl bg-[#25935f] hover:bg-[#25935f]/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={(event) => {
                 event.preventDefault();
                 submitForm();
             }}
-            variant="accent"
             disabled={input.length === 0}
         >
-            <ArrowUpIcon size={14} />
+            <div className="text-white">
+                <ArrowUpIcon size={16} />
+            </div>
         </Button>
     );
 }

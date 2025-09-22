@@ -1,29 +1,29 @@
 import { motion } from 'framer-motion';
 import { SparklesIcon } from './icons';
-import { cx } from 'class-variance-authority';
 
 export const ThinkingMessage = () => {
     return (
         <motion.div
-            className="w-full mx-auto max-w-3xl px-4 group/message "
+            className="w-full mx-auto max-w-3xl px-4 group/message"
             initial={{ y: 5, opacity: 0 }}
             animate={{ y: 0, opacity: 1, transition: { delay: 1 } }}
         >
-            <div
-                className={cx(
-                    'h-[24px] overflow-hidden items-end flex gap-4 group-data-[role=user]/message:px-3 w-full group-data-[role=user]/message:w-fit group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:py-2 rounded-xl',
-                    {
-                        'group-data-[role=user]/message:bg-muted': true,
-                    },
-                )}
-            >
-                <div className="size-6 flex items-center rounded-full justify-center shrink-0 border-none animate-pulse">
-                    <SparklesIcon size={16} />
-                </div>
-
-                <div className="flex flex-col gap-2 w-full">
-                    <div className="flex flex-col gap-4 text-muted-foreground text-md">
-                        Thinking...
+            <div className="bg-gradient-to-r from-white to-[#25935f]/5 px-8 py-6 rounded-3xl border border-[#25935f]/20 shadow-lg backdrop-blur-sm">
+                <div className="flex items-center gap-4">
+                    <div className="size-10 flex items-center rounded-full justify-center shrink-0 border-none animate-pulse bg-gradient-to-r from-[#25935f]/20 to-[#25935f]/30">
+                        <div className="text-[#25935f]">
+                            <SparklesIcon size={24} />
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2 w-full">
+                        <div className="text-gray-700 text-xl font-semibold font-arabic">
+                            جاري التفكير...
+                        </div>
+                        <div className="flex gap-1">
+                            <div className="w-2 h-2 bg-[#25935f] rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-[#25935f] rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-[#25935f] rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
                     </div>
                 </div>
             </div>

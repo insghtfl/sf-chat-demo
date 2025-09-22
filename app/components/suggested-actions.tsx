@@ -25,7 +25,7 @@ export const SuggestedActions = ({ handleSubmit }: SuggestedActionsProps) => {
     }
 
     return (
-        <div className="grid sm:grid-cols-2 gap-2 w-full">
+        <div className="grid sm:grid-cols-2 gap-6 w-full">
             {suggestedActions.map((suggestedAction, index) => (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -41,7 +41,7 @@ export const SuggestedActions = ({ handleSubmit }: SuggestedActionsProps) => {
                             e.preventDefault();
                             handleSubmit(suggestedAction);
                         }}
-                        className="size-full text-left border px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col justify-start items-start whitespace-normal text-muted-foreground"
+                        className="size-full text-left border-2 border-gray-200 px-8 py-6 text-sm flex-1 gap-1 sm:flex-col justify-start items-start whitespace-normal text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 rounded-2xl transition-all duration-200 shadow-lg"
                     >
                         {suggestedAction}
                     </Button>

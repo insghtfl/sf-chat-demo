@@ -18,7 +18,7 @@ export default function Home() {
     SQL_EXEC_TOOL,
   ]
 
-  const { agentState, messages, latestAssistantMessageId, handleNewMessage } = useAgentAPIQuery({
+  const { agentState, messages, handleNewMessage } = useAgentAPIQuery({
     authToken: jwtToken,
     snowflakeUrl: process.env.NEXT_PUBLIC_SNOWFLAKE_URL!,
     experimental: {
@@ -33,21 +33,21 @@ export default function Home() {
 
   return (
     <>
-      <div className="flex flex-col min-w-0 h-dvh bg-background">
+      <div className="flex flex-col min-w-0 h-dvh bg-gradient-to-br from-[#25935f]/5 via-white to-[#25935f]/10">
         <ChatHeader />
 
         <Messages
           agentState={agentState}
           messages={messages}
-          latestAssistantMessageId={latestAssistantMessageId}
         />
 
-        <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-          <ChatInput
-            isLoading={agentState !== AgentApiState.IDLE}
-            messagesLength={messages.length}
-            handleSubmit={handleNewMessage} />
-        </form>
+        <div className="bg-white/95 backdrop-blur-lg border-t border-[#25935f]/20 shadow-xl">
+          <form className="flex mx-auto px-8 py-6 gap-2 w-full md:max-w-3xl">
+            <ChatInput
+              isLoading={agentState !== AgentApiState.IDLE}
+              handleSubmit={handleNewMessage} />
+          </form>
+        </div>
       </div>
     </>
   );

@@ -1,4 +1,4 @@
-import { TopLevelSpec } from 'vega-lite';
+// Removed vega-lite dependency
 
 export enum AgentMessageRole {
     SYSTEM = 'system',
@@ -106,7 +106,7 @@ export interface AgentRequestParams {
 
 export interface Data2AnalyticsObject {
     explanation: string | null;
-    chartSpec: TopLevelSpec | null;
+    chartSpec: Record<string, unknown> | null;
 }
 
 export interface Citation {

@@ -11,11 +11,16 @@ export const Overview = () => {
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ delay: 0.5 }}
         >
-            <div className="flex flex-col gap-4 mt-[9rem]">
-                <p className="flex flex-row justify-center gap-4 items-center">
-                    <MessageIcon size={32} />
+            <div className="flex flex-col gap-8 mt-[9rem] text-center">
+                <div className="p-8 bg-gradient-to-br from-[#25935f]/10 to-[#25935f]/20 rounded-3xl shadow-xl border border-[#25935f]/30">
+                    <MessageIcon size={56} />
+                </div>
+                <h1 className="text-5xl font-bold text-[#25935f] font-arabic">
+                    مرحباً بك في نظام الذكاء الاصطناعي
+                </h1>
+                <p className="text-xl text-gray-700 max-w-lg font-arabic">
+                    نظام ذكي لتحليل البيانات الصناعية وإنشاء التقارير والرسوم البيانية
                 </p>
-                <h1 className="text-[28px] font-bold">What can I help with?</h1>
             </div>
         </motion.div>
     );

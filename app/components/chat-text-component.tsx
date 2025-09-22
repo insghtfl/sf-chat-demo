@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils";
 import { Markdown } from "./markdown";
 
 export interface ChatTextComponentProps {
@@ -6,18 +5,23 @@ export interface ChatTextComponentProps {
     role: string;
 }
 
-export function ChatTextComponent(props: ChatTextComponentProps) {
-    const { text, role } = props;
+export function ChatTextComponent(props: Readonly<ChatTextComponentProps>) {
+    const { text } = props;
+
+    // تصفية الرسائل غير المرغوب فيها
+    const filteredText = text
+        .replace(/The question is clear and I can answer it with the following SQL\./gi, '')
+        .replace(/I can answer it with the following SQL\./gi, '')
+        .replace(/The question is clear and I can answer it\./gi, '')
+        .replace(/The question is clear\./gi, '')
+        .trim();
+
+    if (!filteredText) return null;
 
     return (
-        <div className="flex flex-row gap-2 items-start">
-            <div
-                className={cn('flex flex-col gap-4', {
-                    'bg-[#f7f7f7] px-4 py-3 rounded-xl':
-                        role === 'user',
-                })}
-            >
-                <Markdown>{text}</Markdown>
+        <div className="w-full">
+            <div className="prose prose-green max-w-none font-arabic">
+                <Markdown>{filteredText}</Markdown>
             </div>
         </div>
     )

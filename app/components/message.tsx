@@ -4,13 +4,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { memo } from 'react';
 import { AgentApiState, AgentMessage, AgentMessageRole, AgentMessageChartContent, AgentMessageFetchedTableContent, AgentMessageTextContent, AgentMessageToolResultsContent, AgentMessageToolUseContent, Citation, CortexSearchCitationSource, RELATED_QUERIES_REGEX, RelatedQuery } from '@/lib/agent-api';
 import equal from 'fast-deep-equal';
-import { prettifyChartSpec } from '@/lib/agent-api/functions/chat/prettifyChartSpec';
+import { cn } from '@/lib/utils';
 import { ChatTextComponent } from './chat-text-component';
 import { ChatChartComponent } from './chat-chart-component';
 import { ChatSQLComponent } from './chat-sql-component';
 import { ChatTableComponent } from './chat-table-component';
 import { ChatRelatedQueriesComponent } from './chat-related-queries-component';
 import { ChatCitationsComponent } from './chat-citations-component';
+import { convertVegaLiteToChartJS } from './chart-converter';
 import { Data2AnalyticsMessage } from './chat-data2-message';
 import { postProcessAgentText } from '../functions/postProcessAgentText';
 
@@ -93,19 +94,20 @@ const PurePreviewMessage = ({
                 // if analyst sql response
                 if ("sql" in toolResultsContent) {
                     const { sql } = toolResultsContent;
-                    agentResponses.push(<ChatSQLComponent key={`tool-sql-${contentIndex}-${sql.slice(0, 20)}`} sql={sql} />);
+                    agentResponses.push(<ChatSQLComponent key={`tool-sql-${contentIndex}-${sql.slice(0, 20)}`} />);
                 }
             }
 
             // if execute sql response
         } else if (content.type === "fetched_table") {
             const tableContent = (content as AgentMessageFetchedTableContent);
-            agentResponses.push(<ChatTableComponent key={`table-${contentIndex}-${tableContent.tableMarkdown.slice(0, 20)}`} tableMarkdown={tableContent.tableMarkdown} toolResult={tableContent.toolResult} />);
+            agentResponses.push(<ChatTableComponent key={`table-${contentIndex}-${tableContent.tableMarkdown.slice(0, 20)}`} />);
         } else if (content.type === "chart") {
             const chart_content = (content as AgentMessageChartContent);
             try {
-                const chartSpec = prettifyChartSpec(JSON.parse(chart_content.chart.chart_spec));
-                agentResponses.push(<ChatChartComponent key={`chart-${contentIndex}-${Math.random().toString(36).substring(2, 11)}`} chartSpec={chartSpec} />);
+                const chartSpec = JSON.parse(chart_content.chart.chart_spec);
+                const chartData = convertVegaLiteToChartJS(chartSpec);
+                agentResponses.push(<ChatChartComponent key={`chart-${contentIndex}-${Math.random().toString(36).substring(2, 11)}`} {...chartData} />);
             } catch (error) {
                 console.error('Error parsing chart spec:', error);
                 agentResponses.push(
@@ -124,29 +126,39 @@ const PurePreviewMessage = ({
     return (
         <AnimatePresence>
             <motion.div
-                className="w-full mx-auto max-w-3xl px-4 group/message"
+                className="w-full mx-auto max-w-4xl px-4 group/message"
                 initial={{ y: 5, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 data-role={message.role}
             >
                 <div
-                    className='flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-lg group-data-[role=user]/message:w-fit'
+                    className={cn('w-full', {
+                        'ml-auto max-w-lg w-fit': message.role === AgentMessageRole.USER,
+                        'w-full': message.role === AgentMessageRole.ASSISTANT,
+                    })}
                 >
+                    {message.role === AgentMessageRole.ASSISTANT ? (
+                        <div className="bg-gradient-to-br from-white to-[#25935f]/5 rounded-3xl border border-[#25935f]/20 shadow-lg backdrop-blur-sm p-8">
+                            <div className="flex flex-col gap-6">
+                                {agentResponses}
+                                {role === AgentMessageRole.ASSISTANT && agentState === AgentApiState.RUNNING_ANALYTICS && isLatestAssistantMessage && (
+                                    <Data2AnalyticsMessage message="Analyzing data..." />
+                                )}
 
-                    <div className="flex flex-col gap-4 w-full">
-                        {agentResponses}
-                        {role === AgentMessageRole.ASSISTANT && agentState === AgentApiState.RUNNING_ANALYTICS && isLatestAssistantMessage && (
-                            <Data2AnalyticsMessage message="Analyzing data..." />
-                        )}
+                                {role === AgentMessageRole.ASSISTANT && relatedQueries.length > 0 && (
+                                    <ChatRelatedQueriesComponent relatedQueries={relatedQueries} />
+                                )}
 
-                        {role === AgentMessageRole.ASSISTANT && relatedQueries.length > 0 && (
-                            <ChatRelatedQueriesComponent relatedQueries={relatedQueries} />
-                        )}
-
-                        {role === AgentMessageRole.ASSISTANT && citations.length > 0 && agentState === AgentApiState.IDLE && agentApiText && (
-                            <ChatCitationsComponent agentApiText={agentApiText} citations={citations} />
-                        )}
-                    </div>
+                                {role === AgentMessageRole.ASSISTANT && citations.length > 0 && agentState === AgentApiState.IDLE && agentApiText && (
+                                    <ChatCitationsComponent agentApiText={agentApiText} citations={citations} />
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {agentResponses}
+                        </div>
+                    )}
                 </div>
             </motion.div>
         </AnimatePresence>
